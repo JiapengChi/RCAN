@@ -4,9 +4,30 @@ from decimal import Decimal
 
 import utility
 
+import mmap
+
 import torch
 from torch.autograd import Variable
 from tqdm import tqdm
+
+def get_list_num_with_write(datalist, newlist, result_file):
+    with open(result_file, 'a') as f:
+        for i in datalist:
+            if isinstance(i, list):
+                get_list_num_with_write(i, newlist, result_file)
+            else:
+                newlist.append(i)
+                f.write(str(i))
+                f.write('\n')
+    f.close()
+
+
+def get_list_num(datalist, newlist):
+    for i in datalist:
+        if isinstance(i, list):
+            get_list_num(i, newlist)
+        else:
+            newlist.append(i)
 
 class Trainer():
     def __init__(self, args, loader, my_model, my_loss, ckp):
@@ -79,7 +100,14 @@ class Trainer():
         self.ckp.add_log(torch.zeros(1, len(self.scale)))
         self.model.eval()
 
+        mmap_file = mmap.mmap(-1, 67108864, access=mmap.ACCESS_WRITE, tagname='sharemem')
+        sr_mmap_file = mmap.mmap(-1, 40960, access=mmap.ACCESS_WRITE, tagname='sr')
+        loop_count = '-1'
+
         timer_test = utility.timer()
+        data_dic_lr = {}
+        data_dic_hr = {}
+
         with torch.no_grad():
             for idx_scale, scale in enumerate(self.scale):
                 eval_acc = 0
